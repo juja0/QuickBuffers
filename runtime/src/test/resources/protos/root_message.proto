@@ -1,0 +1,8 @@
+syntax = "proto3";
+package quickbuf_unittest_import;
+
+option java_package = "protos.test.protobuf";
+
+message RootMessage {
+  string foo = 1;
+}

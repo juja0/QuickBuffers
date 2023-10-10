@@ -20,8 +20,12 @@
 
 package us.hebi.quickbuf;
 
+import com.google.protobuf.util.JsonFormat;
+import com.google.quickbuf.Struct;
+import com.google.quickbuf.Value;
 import org.junit.Test;
 import protos.test.quickbuf.ForeignEnum;
+import protos.test.quickbuf.RootMessageOuterClass;
 import protos.test.quickbuf.TestAllTypes;
 import protos.test.quickbuf.TestAllTypes.NestedEnum;
 import protos.test.quickbuf.external.ImportEnum;
@@ -258,7 +262,111 @@ public class JsonSinkTest {
         assertEquals(repeatedFloatResult, result);
     }
 
-    protected String repeatedFloatResult = "{\"data\":[-2,-1.5,-1,-0.5,0,0.5,1,1.5]}";
+	@Test
+	public void testJsonSerDe() throws IOException
+	{
+		String json = "{\"foo\":\"bar\"}";
+
+        /*
+            Root message definition
+
+            message RootMessage {
+              string foo = 1;
+            }
+        */
+
+		// ------------------------- protobuf root message ---------------------------------------
+
+		protos.test.protobuf.RootMessageOuterClass.RootMessage.Builder grm = protos.test.protobuf.RootMessageOuterClass.RootMessage.newBuilder();
+
+		// protobuf json deserialization
+		JsonFormat.parser().merge(json, grm);
+
+		// wire bytes
+		byte[] grmBytes = grm.build().toByteArray();
+
+		// reconstructed proto
+		protos.test.protobuf.RootMessageOuterClass.RootMessage cgrm = protos.test.protobuf.RootMessageOuterClass.RootMessage.parseFrom(grmBytes);
+
+		// protobuf json serialization
+		String roundTripRm = JsonFormat.printer()
+				.print(cgrm)
+				.replaceAll(" *", "")
+				.replaceAll("\n*", "");
+
+		assertEquals(json, roundTripRm); // this works
+
+		// ------------------------- protobuf struct ---------------------------------------
+
+		com.google.protobuf.Struct.Builder gstruct = com.google.protobuf.Struct.newBuilder();
+
+		// protobuf json deserialization
+		JsonFormat.parser().merge(json, gstruct);
+
+		// wire bytes
+		byte[] gstructBytes = gstruct.build().toByteArray();
+
+		// reconstructed
+		com.google.protobuf.Struct cgstruct = com.google.protobuf.Struct.parseFrom(gstructBytes);
+
+		// protobuf json serialization
+		String roundTrip = JsonFormat.printer()
+				.print(cgstruct)
+				.replaceAll(" *", "")
+				.replaceAll("\n*", "");
+
+		assertEquals(json, roundTrip); // this also works
+
+		// ------------------------- quickbuf root message ---------------------------------------
+
+		// quickbuf json deserialization (this works)
+		RootMessageOuterClass.RootMessage qrm = RootMessageOuterClass.RootMessage.parseFrom(JsonSource.newInstance(json.getBytes()));
+
+		// this works
+		assertEquals(json, JsonSink.newInstance().writeMessageSilent(qrm).toString());
+
+		RootMessageOuterClass.RootMessage qcrm = RootMessageOuterClass.RootMessage.newInstance().setFoo("bar");
+
+		// quickbuf json serialization (this also works)
+		assertEquals(json, JsonSink.newInstance().writeMessageSilent(qcrm).toString());
+
+		// ------------------------- quickbuf struct ---------------------------------------
+
+		// quickbuf json deserialization <------ fails here
+		Struct qstruct = Struct.parseFrom(JsonSource.newInstance(json.getBytes()));
+
+		// doesn't get here
+		assertEquals(json, JsonSink.newInstance().writeMessageSilent(qstruct).toString());
+
+		Struct qcstruct = Struct.newInstance();
+
+		qcstruct.addFields(
+				Struct.FieldsEntry.newInstance().setKey("foo").setValue(Value.newInstance().setStringValue("bar"))
+		);
+
+		// quickbuf json serialization <---- assertion fails here
+		assertEquals(json, qcstruct.toString());
+		
+		/*
+			Expected 
+			
+			{"foo":"bar"}
+					
+			Actual
+			
+			{
+                "fields": [{
+                   "value": {
+                        "stringValue": "bar"
+                    },  
+                    "key": "foo"
+                }]
+			}					
+					
+		 */
+	}
+
+	protected String repeatedFloatResult = "{\"data\":[-2,-1.5,-1,-0.5,0,0.5,1,1.5]}";
 
     public JsonSink newJsonSink() {
         return JsonSink.newInstance();

@@ -38,6 +38,14 @@
             <artifactId>junit</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>com.github.os72</groupId>
+            <artifactId>protoc-jar-maven-plugin</artifactId>
+            <version>${protoc.jar.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+        
     </dependencies>
 
     <build>
